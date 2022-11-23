@@ -1,5 +1,6 @@
-from Graph import Graph
 from abc import ABC, abstractmethod
+
+from World import World
 
 
 class Agent(ABC):
@@ -9,7 +10,7 @@ class Agent(ABC):
         self.terminated = 0
 
     @abstractmethod
-    def act(self, graph: Graph):
+    def act(self, world: World):
         pass
 
     def __str__(self):
@@ -23,17 +24,19 @@ class Agent(ABC):
 
 class HumanAgent(Agent):
 
-    def act(self, graph: Graph):
+    def act(self, world: World):
         move = input("Insert next vertex to move, 'Enter' for no-op ")
+
         if int(move) < 0:
             self.terminated = 1
             return
         return move
 
 
-# class StupidGreedy(Agent):
-#     def __init__(self, location, name: str):
-#         Agent.__init__(self, location, name)
-#         self.
-#
-#     def act(self, graph: Graph):
+class SearchAgent(Agent):
+    def __init__(self, location, name: str):
+        Agent.__init__(self, location, name)
+        self.fringe = []
+
+    def act(self, world: World):
+        pass
