@@ -93,3 +93,9 @@ class StateNode:
 
     def __gt__(self, other):
         return True
+
+    def __str__(self):
+        return f"StateNode(state={self.state}, f_value={self.f_value}, g_value={self.g_value}, parent={self.parent}, people_status={self.people_status}, broken_nodes_status={self.broken_nodes_status})"
+
+    def __repr__(self):
+        return self.__str__()

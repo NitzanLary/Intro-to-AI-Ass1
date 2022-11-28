@@ -26,6 +26,10 @@ class Fringe(ABC):
     def is_empty(self):
         pass
 
+    @abstractmethod
+    def __str__(self):
+        pass
+
 
 class PriorityQueue(Fringe):
     def __init__(self):
@@ -43,3 +47,6 @@ class PriorityQueue(Fringe):
 
     def is_empty(self):
         return len(self.queue) == 0
+
+    def __str__(self):
+        return str(self.queue)

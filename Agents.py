@@ -151,6 +151,7 @@ class InformedSearchAgent(Agent):
         self.fringe.initialize()
         self.fringe.push(node)
         while not self.fringe.is_empty():
+            # print(self.fringe)
             node = self.fringe.pop()
             if self.goal_state(node):
                 return node, SUCCESS
@@ -171,16 +172,29 @@ class InformedSearchAgent(Agent):
             node = node.parent
 
     @staticmethod
-    def stupid_greedy_heuristic(p, c, world: World):
+    def get_path_to_closest_nodes(c, world: World, nodes_list: list):
         shortest_v_value = math.inf
-        for v, n_people in world.get_people_status().items():
-            if n_people > 0:
-                dist, path = world.get_shortest_path(c, v)
-                total_path_value = dist + world.get_weight(p, c)
-                if path and total_path_value < shortest_v_value:
-                    shortest_v_value = total_path_value
-        return shortest_v_value
+        current_path = []
+        for v in nodes_list:
+            dist, path = world.get_shortest_path(c, v)
+            if path and dist < shortest_v_value:
+                shortest_v_value = dist
+                current_path = path
+        return shortest_v_value, current_path
 
     @staticmethod
+    # construct a shortest path from c to all vertices with people in them
     def MST_heuristic(p, c, world: World):
-        pass
+        # get all vertices with people in them
+        v_with_people = [v for v, n_people in world.get_people_status().items() if n_people > 0]
+        current_closest_v = c
+        path_sum = 0 # sum of all edges in the path
+        while v_with_people:
+            shortest_v_value, current_path = InformedSearchAgent.get_path_to_closest_nodes(current_closest_v,
+                                                                                                   world, v_with_people)
+            if not current_path:
+                return math.inf
+            current_closest_v = current_path[-1]
+            v_with_people.remove(current_closest_v)
+            path_sum += shortest_v_value
+        return path_sum
