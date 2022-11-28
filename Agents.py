@@ -63,7 +63,8 @@ class HumanAgent(Agent):
 class StupidGreedy(Agent):
 
     def act(self, world: World):
-        if self.goal_state(StateNode(self.state, world=world, parent=None)):
+        if self.goal_state(StateNode(self.state, None, self.world, self.world.get_people_status(),
+                                     self.world.get_broken_vertices_status())):
             print("Woohoo!")
             self.terminated = 1
             return
@@ -71,13 +72,19 @@ class StupidGreedy(Agent):
         if len(path) < 2:
             self.terminated = 1
             return
-        return path[1]
+        next_move = path[1]
+        if not world.valid_action(self.state, next_move):
+            self.actions += 1
+            return
+        self.handle_move(next_move)
+        return next_move
 
     def calculate_path(self, world: World):
         current_path = []
         shortest_v_value = math.inf
+        broken_vertices = world.get_broken_vertices_status()
         for v, n_people in world.get_people_status().items():
-            if n_people > 0:
+            if n_people > 0 and v not in broken_vertices:
                 dist, path = world.get_shortest_path(self.state, v)
                 if path and dist < shortest_v_value:
                     shortest_v_value = dist
@@ -87,7 +94,8 @@ class StupidGreedy(Agent):
 
 class SaboteurAgent(Agent):
     def act(self, world: World):
-        if self.goal_state(StateNode(self.state, world=world, parent=None)):
+        if self.goal_state(StateNode(self.state, None, self.world, self.world.get_people_status(),
+                                     self.world.get_broken_vertices_status())):
             print("Woohoo!")
             self.terminated = 1
             return
