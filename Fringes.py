@@ -5,6 +5,8 @@ from World import StateNode
 
 
 class Fringe(ABC):
+    def __init__(self):
+        self.added_so_far = 0
 
     @abstractmethod
     def initialize(self):
@@ -17,6 +19,9 @@ class Fringe(ABC):
     def push_all(self, iterable):
         for elem in iterable:
             self.push(elem)
+
+    def get_added_so_far(self):
+        return self.added_so_far
 
     @abstractmethod
     def pop(self):
@@ -33,12 +38,14 @@ class Fringe(ABC):
 
 class PriorityQueue(Fringe):
     def __init__(self):
+        Fringe.__init__(self)
         self.queue = []
 
     def initialize(self):
         self.queue = []
 
-    def push(self, state_node):
+    def push(self, state_node: StateNode):
+        self.added_so_far += 1
         return heapq.heappush(self.queue, (state_node.f_value, state_node))
 
     def pop(self):

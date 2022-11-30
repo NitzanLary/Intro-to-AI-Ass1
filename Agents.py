@@ -49,7 +49,8 @@ class Agent(ABC):
 
 class HumanAgent(Agent):
     def act(self, world: World):
-        if self.goal_state(StateNode(self.state, world=world, parent=None)):
+        if self.goal_state(
+                StateNode(self.state, None, world, world.get_people_status(), world.get_broken_vertices_status())):
             print("Woohoo!")
             self.terminated = 1
         while (move := int(input("Insert next vertex to move, 'Enter' for no-op "))) >= 0 and not world.valid_action(
@@ -136,6 +137,10 @@ class InformedSearchAgent(Agent):
     def act(self, world):
         if not self.calculated:
             node, status = self.calculate_path()  # StateNode(self.state, parent=None, world=self.world)
+            if not status:
+                print("Failure")
+                self.terminated = 1
+                return
             self.reconstruct_path(node)
             self.calculated = True
         if not self.sequence:
@@ -143,26 +148,28 @@ class InformedSearchAgent(Agent):
             return
         next_move = self.sequence.pop()
         self.handle_move(next_move)
+        if self.goal_state(
+                StateNode(next_move, None, world, world.get_people_status(), world.get_broken_vertices_status())):
+            print("Woohoo!")
         return next_move
 
     def calculate_path(self):
         node = StateNode(self.state, None, self.world, self.world.get_people_status(),
                          self.world.get_broken_vertices_status())
-        self.fringe.initialize()
         self.fringe.push(node)
         while not self.fringe.is_empty():
-            # print(self.fringe)
             node = self.fringe.pop()
             if self.goal_state(node):
                 return node, SUCCESS
             if node not in self.closed:
                 self.closed.append(node)
                 self.fringe.push_all(self.expand(node))
+                # if self.fringe.get_added_so_far() >
         return node, FAILURE
 
     def expand(self, node: StateNode) -> iter:
         return map(lambda n: StateNode(n, node, self.world, node.people_status, node.broken_nodes_status,
-                                       f_value=self.f(node.state, n, self.world),
+                                       f_value=self.f(node, n, self.world),
                                        g_value=node.g_value + self.world.get_weight(node.state, n)),
                    self.world.get_neighbors(node.state))
 
@@ -184,17 +191,22 @@ class InformedSearchAgent(Agent):
 
     @staticmethod
     # construct a shortest path from c to all vertices with people in them
-    def MST_heuristic(p, c, world: World):
+    def MST_heuristic(p: StateNode, c, world: World):
         # get all vertices with people in them
-        v_with_people = [v for v, n_people in world.get_people_status().items() if n_people > 0]
-        current_closest_v = c
-        path_sum = 0 # sum of all edges in the path
-        while v_with_people:
-            shortest_v_value, current_path = InformedSearchAgent.get_path_to_closest_nodes(current_closest_v,
-                                                                                                   world, v_with_people)
-            if not current_path:
-                return math.inf
-            current_closest_v = current_path[-1]
-            v_with_people.remove(current_closest_v)
-            path_sum += shortest_v_value
-        return path_sum
+        v_with_people = [v for v, n_people in p.people_status.items() if n_people > 0]
+        return world.get_MST_size(around_nodes=v_with_people + [c])
+        # current_closest_v = c
+        # path_sum = 0  # sum of all edges in the path
+        # while v_with_people:
+        #     shortest_v_value, current_path = InformedSearchAgent.get_path_to_closest_nodes(current_closest_v,
+        #                                                                                    world, v_with_people)
+        #     if not current_path:
+        #         return math.inf
+        #     current_closest_v = current_path[-1]
+        #     v_with_people.remove(current_closest_v)
+        #     path_sum += shortest_v_value
+        # return path_sum
+
+    @staticmethod
+    def A_star_func(p: StateNode, c, world: World):
+        return InformedSearchAgent.MST_heuristic(p, c, world) + p.g_value + world.get_weight(p.state, c)

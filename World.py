@@ -73,8 +73,10 @@ class World:
             res.add(v)
         return res
 
-    def get_MST_size(self):
-        return self.graph.get_MST_size()
+    def get_MST_size(self, around_nodes=None):
+        if not around_nodes:
+            around_nodes = list(self.environment['V'].keys())
+        return self.graph.get_MST_size(around_nodes)
 
 
 @total_ordering

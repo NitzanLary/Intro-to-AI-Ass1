@@ -32,7 +32,7 @@ class Graph:
         nx.draw_networkx_labels(self.G, self.pos, labels=nodes_labels, font_size=16)
         plt.show()
 
-    def get_shortest_path(self, v1, v2, without):
+    def get_shortest_path(self, v1, v2, without=()):
         without_nodes = self.G.copy()
         without_nodes.remove_nodes_from(set(without) - {v1})
         if nx.has_path(without_nodes, v1, v2):
@@ -43,5 +43,21 @@ class Graph:
         for v1, v2 in nx.edges(self.G, node):
             self.G[v1][v2]["weight"] = float("inf")
 
-    def get_MST_size(self):
-        return nx.minimum_spanning_tree(self.G).size()
+    def get_MST_size(self, around_nodes: list):
+        full_graph_around_nodes = nx.Graph()
+        for i, v_i in enumerate(around_nodes):
+            for j, v_j in enumerate(around_nodes[i + 1:]):
+                dist, path = self.get_shortest_path(v_i, v_j)
+                full_graph_around_nodes.add_edge(v_i, v_j, weight=dist)
+        mst = nx.minimum_spanning_tree(full_graph_around_nodes)
+        # pos = nx.spring_layout(full_graph_around_nodes)
+        # subax1 = plt.subplot(121)
+        # nx.draw(full_graph_around_nodes, pos=pos, with_labels=True)
+        # nx.draw_networkx_edge_labels(mst, pos=pos)
+        # subax2 = plt.subplot(122)
+        # pos = nx.spring_layout(mst)
+        # nx.draw(mst, pos=pos, with_labels=True)
+        # nx.draw_networkx_edge_labels(mst, pos=pos)
+        #
+        # plt.show()
+        return mst.size()

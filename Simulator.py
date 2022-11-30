@@ -20,11 +20,11 @@ class Simulator:
             for agent in self.agents:
                 dst = agent.act(self.world)
                 if dst:
-                    self.handle_move(agent, dst)
+                    self.handle_move(dst)
                 print(agent)
                 self.display()
             self.agents = [a for a in self.agents if not a.terminated]
 
-    def handle_move(self, agent, dst):
+    def handle_move(self, dst):
         self.world.handle_brittle(dst)
 
