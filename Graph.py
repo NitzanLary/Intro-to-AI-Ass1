@@ -13,7 +13,7 @@ class Graph:
         self.pos = nx.spring_layout(self.G)  # for drawing
 
     def get_weight(self, v1, v2):
-        assert v2 in self.G[v1]
+        assert v2 in self.G[v1], f"{v2} not in {v2}"
         return self.G[v1][v2]["weight"]
 
     def get_neighbors(self, v1):
@@ -43,11 +43,11 @@ class Graph:
         for v1, v2 in nx.edges(self.G, node):
             self.G[v1][v2]["weight"] = float("inf")
 
-    def get_MST_size(self, around_nodes: list):
+    def get_MST_size(self, around_nodes: list, without_nodes=()):
         full_graph_around_nodes = nx.Graph()
         for i, v_i in enumerate(around_nodes):
             for j, v_j in enumerate(around_nodes[i + 1:]):
-                dist, path = self.get_shortest_path(v_i, v_j)
+                dist, path = self.get_shortest_path(v_i, v_j, without_nodes)
                 full_graph_around_nodes.add_edge(v_i, v_j, weight=dist)
         mst = nx.minimum_spanning_tree(full_graph_around_nodes)
         # pos = nx.spring_layout(full_graph_around_nodes)
@@ -60,4 +60,5 @@ class Graph:
         # nx.draw_networkx_edge_labels(mst, pos=pos)
         #
         # plt.show()
-        return mst.size()
+
+        return mst.size(weight="weight")

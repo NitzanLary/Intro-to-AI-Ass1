@@ -31,7 +31,6 @@ class World:
         return nl
 
     def display(self, agents_locations):
-        print(agents_locations)
         self.graph.display(self.create_labels(values_to_keys(agents_locations)))
 
     def get_people(self, dst):
@@ -73,7 +72,7 @@ class World:
             res.add(v)
         return res
 
-    def get_MST_size(self, around_nodes=None):
+    def get_MST_size(self, around_nodes=None, without_nodes=()):
         if not around_nodes:
             around_nodes = list(self.environment['V'].keys())
         return self.graph.get_MST_size(around_nodes)
