@@ -35,7 +35,7 @@ class Graph:
     def get_shortest_path(self, v1, v2, without=()):
         without_nodes = self.G.copy()
         without_nodes.remove_nodes_from(set(without) - {v1})
-        if nx.has_path(without_nodes, v1, v2):
+        if v2 in without_nodes.nodes and nx.has_path(without_nodes, v1, v2):
             return nx.single_source_dijkstra(without_nodes, v1, v2)
         return math.inf, []
 

@@ -2,7 +2,7 @@ from Simulator import Simulator
 
 
 def main():
-    s = Simulator(path="env2.json")
+    s = Simulator(path="env3.json")
     s.start()
 
 

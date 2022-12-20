@@ -152,6 +152,10 @@ class InformedSearchAgent(Agent):
             self.terminated = 1
             return
         next_move = self.sequence.pop()
+        if not world.valid_action(self.state, next_move):
+            self.terminated = 1
+            print("Boooooooo")
+            return
         self.handle_move(next_move)
         if self.goal_state(
                 StateNode(next_move, None, world, world.get_people_status(), world.get_broken_vertices_status())):
@@ -224,6 +228,10 @@ class RTInformedSearchAgent(InformedSearchAgent):
             self.handle_not_failure(node)
             return self.act(world)
         next_move = self.sequence.pop()
+        if not world.valid_action(self.state, next_move):
+            self.terminated = 1
+            print("Boooooooo")
+            return
         self.handle_move(next_move)
         if self.goal_state(
                 StateNode(next_move, None, world, world.get_people_status(), world.get_broken_vertices_status())):

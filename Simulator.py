@@ -72,7 +72,8 @@ class Simulator:
                                        limit)
         if agent_no == '6':
             L = int(input("Enter L: "))
-            return RTInformedSearchAgent(agent_location, "RT_A*", InformedSearchAgent.A_star_func, Fringes.PriorityQueue(),
+            return RTInformedSearchAgent(agent_location, "RT_A*", InformedSearchAgent.A_star_func,
+                                         Fringes.PriorityQueue(),
                                          limit=L)
         return Bonus(agent_location, "A*", InformedSearchAgent.A_star_func, Fringes.PriorityQueue())
 
@@ -80,4 +81,3 @@ class Simulator:
         for agent in self.agents:
             agent.set_goal_state(lambda state: sum(state.people_status.values()) == 0)
             agent.set_world(self.world)
-

@@ -75,11 +75,12 @@ class World:
     def get_MST_size(self, around_nodes=None, without_nodes=()):
         if not around_nodes:
             around_nodes = list(self.environment['V'].keys())
-        return self.graph.get_MST_size(around_nodes)
+        return self.graph.get_MST_size(around_nodes, without_nodes)
 
 
 @total_ordering
 class StateNode:
+
     def __init__(self, state, parent, world: World, people_status: Dict, broken_nodes_status: Set, f_value=0,
                  g_value=0):
         self.state = state
@@ -88,15 +89,17 @@ class StateNode:
         self.parent = parent
         self.people_status = world.simulate_people_status(state, people_status)
         self.broken_nodes_status = world.simulate_broken_vertices(state, broken_nodes_status)
+        print(self)
 
     def __eq__(self, other):
         return self.state == other.state and self.people_status == other.people_status and self.broken_nodes_status == other.broken_nodes_status
 
     def __gt__(self, other):
-        return True
+        return (self.f_value, len(self.broken_nodes_status), self.state) > (
+            other.f_value, len(other.broken_nodes_status), other.state)
 
     def __str__(self):
-        return f"StateNode(state={self.state}, f_value={self.f_value}, g_value={self.g_value}, parent={self.parent}, people_status={self.people_status}, broken_nodes_status={self.broken_nodes_status})"
+        return f"StateNode(state={self.state}, f_value={self.f_value}, g_value={self.g_value}, people_status={self.people_status}, broken_nodes_status={self.broken_nodes_status})"
 
     def __repr__(self):
         return self.__str__()
