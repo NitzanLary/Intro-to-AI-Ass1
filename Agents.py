@@ -1,295 +1,104 @@
 import math
-from abc import ABC, abstractmethod
 from collections.abc import Callable
+from itertools import chain
 from typing import Any
 
-from Fringes import Fringe
 from World import World, StateNode
 
-SUCCESS = 1
-FAILURE = 0
-ON_PROCESS = 2
+epsilon = 0.0001
 
 
-class Agent(ABC):
-    def __init__(self, state, name: str):
-        self.score, self.state, self.actions, self.evacuated, self.time = 0, state, 0, 0, 0
+class Agent:
+    def __init__(self, initial_location, name: str):
         self.name = name
-        self.goal_state = None
-        self.terminated = 0
-        self.world = None
-
-    def set_goal_state(self, goal_state: Callable[[StateNode], bool]):
-        self.goal_state = goal_state
+        self.location = initial_location
+        self.score, self.evacuated = 0, 0
+        self.world, self.eval, self.terminal_test, self.cutoff_test = None, None, None, None
 
     def set_world(self, world: World):
         self.world = world
 
+    def set_terminal_test(self, terminal_state: Callable[[StateNode], bool]):
+        self.terminal_test = terminal_state
+
+    def set_cutoff_test(self, max_depth):
+        self.cutoff_test = lambda d: d > max_depth
+
+    def set_eval_function(self, eval_func: Callable[[StateNode], float]):
+        self.eval = eval_func
+
     def handle_move(self, dst):
-        w = self.world.get_weight(self.state, dst)  # 1 if dst == self.state else
+        if dst == self.location:
+            return
         p = self.world.get_people(dst)
         self.evacuated += p
-        self.actions += 1
-        self.score += 1000 * p - w
-        self.time += w
-        self.state = dst
+        self.score += p
+        self.location = dst
         self.world.clear_people(dst)
 
-    @abstractmethod
-    def act(self, world: World):
-        pass
+    def act(self):
+        action = self.alpha_beta__search()
+        self.handle_move(action)
+        return action
+
+    def alpha_beta__search(self):
+        state = StateNode(self.location, self.world, None)
+        v, final_action = self.max_value(state, -float("inf"), float("inf"), depth=1, score=0)
+        action = self.reconstruct_path(final_action)
+        # returning only next move instead of State
+        return action.location
+
+    def max_value(self, state: StateNode, alpha, beta, depth, score) -> (float, Any):
+        # a leaf, return the actual score
+        if self.terminal_test(state):
+            return score, state
+        # max depth reached, return the heuristic static evaluation of state
+        if self.cutoff_test(depth):
+            return self.eval(state, self.world) + score, state
+        v, action = -float("inf"), state
+        # max between all possible action, including no-op (which is basically staying in place)
+        for child in chain(self.world.get_neighbors(state.location), [state.location]):
+            current_score = score + self.world.get_people(child) - epsilon
+            value = self.min_value(StateNode(child, self.world, state), alpha, beta, depth + 1, current_score)
+            v, action = max((v, action), value)
+            if v >= beta:
+                return v, state
+            alpha = max(v, alpha)
+        return v, action
+
+    def min_value(self, state: StateNode, alpha, beta, depth, score) -> (float, Any):
+        if self.terminal_test(state):
+            return score, state
+        if self.cutoff_test(depth):
+            return self.eval(state, self.world) + score, state
+        v, action = float("inf"), state
+        for child in chain(self.world.get_neighbors(state.location), [state.location]):
+            current_score = score - self.world.get_people(child) - epsilon
+            value = self.max_value(StateNode(child, self.world, state), alpha, beta, depth + 1, current_score)
+            v, action = min((v, action), value)
+            if v <= alpha:
+                return v, action
+            beta = min(v, beta)
+        return v, action
+
+    def reconstruct_path(self, node: StateNode):
+        p = []
+        while node.parent:
+            p.append(node)
+            node = node.parent
+        # print(list(a.location for a in p[-1::-1]))
+        return p.pop()
+
+    @staticmethod
+    def MST_heuristic(state: StateNode, world: World):
+        if state.location in state.broken_nodes_status:
+            return math.inf
+        v_with_people = [v for v, n_people in state.people_status.items() if n_people > 0]
+        return world.get_MST_size(around_nodes=v_with_people + [state.location],
+                                  without_nodes=state.broken_nodes_status)
 
     def __str__(self):
         return f"name: {self.name} " \
                f"score: {self.score} " \
-               f"state: {self.state} " \
-               f"time: {self.time} " \
-               f"evacuated: {self.evacuated} " \
-               f"actions: {self.actions}"
-
-
-class HumanAgent(Agent):
-    def act(self, world: World):
-        if self.goal_state(
-                StateNode(self.state, None, world, world.get_people_status(), world.get_broken_vertices_status())):
-            print("Woohoo!")
-            self.terminated = 1
-        while (move := int(input("Insert next vertex to move, 'Enter' for no-op "))) >= 0 and not world.valid_action(
-                self.state, str(move)):
-            pass
-        move = str(move)
-        self.handle_move(move)
-        return move
-
-
-class StupidGreedy(Agent):
-
-    def act(self, world: World):
-        if self.goal_state(StateNode(self.state, None, self.world, self.world.get_people_status(),
-                                     self.world.get_broken_vertices_status())):
-            print("Woohoo!")
-            self.terminated = 1
-            return
-        path = self.calculate_path(world)
-        if len(path) < 2:
-            self.terminated = 1
-            return
-        next_move = path[1]
-        if not world.valid_action(self.state, next_move):
-            self.actions += 1
-            return
-        self.handle_move(next_move)
-        return next_move
-
-    def calculate_path(self, world: World):
-        current_path = []
-        shortest_v_value = math.inf
-        broken_vertices = world.get_broken_vertices_status()
-        for v, n_people in world.get_people_status().items():
-            if n_people > 0 and v not in broken_vertices:
-                dist, path = world.get_shortest_path(self.state, v)
-                if path and dist < shortest_v_value:
-                    shortest_v_value = dist
-                    current_path = path
-        return current_path
-
-
-class SaboteurAgent(Agent):
-    def act(self, world: World):
-        if self.goal_state(StateNode(self.state, None, self.world, self.world.get_people_status(),
-                                     self.world.get_broken_vertices_status())):
-            print("Woohoo!")
-            self.terminated = 1
-            return
-        path = self.calculate_path(world)
-        if len(path) < 2:
-            self.terminated = 1
-            return
-        next_move = path[1]
-        if not world.valid_action(self.state, next_move):
-            self.actions += 1
-            return
-        self.time += self.world.get_weight(self.state, next_move)
-        self.state = next_move
-        return next_move
-
-    def calculate_path(self, world: World):
-        current_path = []
-        broken_nodes = world.get_broken_vertices_status()
-        shortest_v_value = math.inf
-        for v in world.get_brittle_vertices():
-            if v not in broken_nodes:
-                dist, path = world.get_shortest_path(self.state, v)
-                if path and dist < shortest_v_value:
-                    shortest_v_value = dist
-                    current_path = path
-        return current_path
-
-    def set_goal_state(self, goal_state: Callable[[StateNode], bool]):
-        self.goal_state = lambda state: len(list(self.world.get_brittle_vertices())) == len(state.broken_nodes_status)
-
-
-class InformedSearchAgent(Agent):
-    def __init__(self, state, name: str, f: Callable[[Any, Any, World], float], fringe: Fringe, limit=10000):
-        Agent.__init__(self, state, name)
-        self.f = f
-        self.fringe = fringe
-        self.limit = limit
-        self.closed = []
-        self.sequence = []
-        self.calculated = False
-
-    def act(self, world):
-        if not self.calculated:
-            node, status = self.calculate_path()  # StateNode(self.state, parent=None, world=self.world)
-            if not status:
-                print("Failure")
-                self.terminated = 1
-                return
-            self.reconstruct_path(node)
-            self.calculated = True
-        if not self.sequence:
-            self.terminated = 1
-            return
-        next_move = self.sequence.pop()
-        if not world.valid_action(self.state, next_move):
-            self.terminated = 1
-            print("Boooooooo")
-            return
-        self.handle_move(next_move)
-        if self.goal_state(
-                StateNode(next_move, None, world, world.get_people_status(), world.get_broken_vertices_status())):
-            print("Woohoo!")
-            self.terminated = 1
-        return next_move
-
-    def calculate_path(self):
-        iterations = 0
-        node = StateNode(self.state, None, self.world, self.world.get_people_status(),
-                         self.world.get_broken_vertices_status())
-        self.fringe.push(node)
-        while not self.fringe.is_empty():
-            iterations += 1
-            node = self.fringe.pop()
-            if self.goal_state(node):
-                return node, SUCCESS
-            if iterations >= self.limit:
-                return node, FAILURE
-            if node not in self.closed:
-                self.closed.append(node)
-                self.fringe.push_all(self.expand(node))
-        return node, FAILURE
-
-    def expand(self, node: StateNode) -> iter:
-        return map(lambda n: StateNode(n, node, self.world, node.people_status, node.broken_nodes_status,
-                                       f_value=self.f(node, n, self.world),
-                                       g_value=node.g_value + self.world.get_weight(node.state, n)),
-                   self.world.get_neighbors(node.state))
-
-    def reconstruct_path(self, node: StateNode):
-        while node.parent:
-            self.sequence.append(node.state)
-            node = node.parent
-
-    @staticmethod
-    def get_path_to_closest_nodes(c, world: World, nodes_list: list):
-        shortest_v_value = math.inf
-        current_path = []
-        for v in nodes_list:
-            dist, path = world.get_shortest_path(c, v)
-            if path and dist < shortest_v_value:
-                shortest_v_value = dist
-                current_path = path
-        return shortest_v_value, current_path
-
-    @staticmethod
-    def MST_heuristic(p: StateNode, c, world: World):
-        # get all vertices with people in them
-        if c in world.get_broken_vertices_status():
-            return math.inf
-        v_with_people = [v for v, n_people in p.people_status.items() if n_people > 0]
-        return world.get_MST_size(around_nodes=v_with_people + [c], without_nodes=p.broken_nodes_status)
-
-    @staticmethod
-    def A_star_func(p: StateNode, c, world: World):
-        return InformedSearchAgent.MST_heuristic(p, c, world) + p.g_value + world.get_weight(p.state, c)
-
-
-class RTInformedSearchAgent(InformedSearchAgent):
-    def __init__(self, state, name: str, f: Callable[[Any, Any, World], float], fringe: Fringe, limit=10000):
-        InformedSearchAgent.__init__(self, state, name, f, fringe, limit)
-
-    def act(self, world: World):
-        if not self.calculated or len(self.sequence) == 0:
-            node, status = self.calculate_path()
-            if status == FAILURE:
-                self.handle_failure()
-                return
-            self.handle_not_failure(node)
-            return self.act(world)
-        next_move = self.sequence.pop()
-        if not world.valid_action(self.state, next_move):
-            self.terminated = 1
-            print("Boooooooo")
-            return
-        self.handle_move(next_move)
-        if self.goal_state(
-                StateNode(next_move, None, world, world.get_people_status(), world.get_broken_vertices_status())):
-            print("Woohoo!")
-            self.terminated = 1
-        return next_move
-
-    def calculate_path(self):
-        self.fringe.initialize()
-        self.closed.clear()
-        node = StateNode(self.state, None, self.world, self.world.get_people_status(),
-                         self.world.get_broken_vertices_status())
-        self.fringe.push(node)
-        iterations = 0
-        while not self.fringe.is_empty():
-            iterations += 1
-            node = self.fringe.pop()
-            if self.goal_state(node):
-                return node, SUCCESS
-            if iterations > self.limit:
-                return node, ON_PROCESS
-            if node not in self.closed:
-                self.closed.append(node)
-                self.fringe.push_all(self.expand(node))
-        return node, FAILURE
-
-    def handle_failure(self):
-        print(f"{self.name} Failed")
-        self.terminated = 1
-
-    def handle_not_failure(self, node: StateNode):
-        self.sequence.clear()
-        self.reconstruct_path(node)
-        self.calculated = 1
-
-
-class Bonus(InformedSearchAgent):
-    def act(self, world):
-        self.fringe.initialize()
-        self.closed.clear()
-        self.sequence.clear()
-        node, status = self.calculate_path()
-        if not status:
-            print("Failure")
-            self.terminated = 1
-            return
-        self.reconstruct_path(node)
-        if not self.sequence:
-            self.terminated = 1
-            return
-        next_move = self.sequence.pop()
-        if not world.valid_action(self.state, next_move):
-            print(f"{self.name} Failed")
-            self.terminated = 1
-            return
-        self.handle_move(next_move)
-        if self.goal_state(
-                StateNode(next_move, None, world, world.get_people_status(), world.get_broken_vertices_status())):
-            print("Woohoo!")
-            self.terminated = 1
-        return next_move
+               f"location: {self.location} " \
+               f"evacuated: {self.evacuated} "
