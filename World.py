@@ -6,12 +6,13 @@ from util import values_to_keys
 
 
 class World:
-    def __init__(self, environment):
+    def __init__(self, environment, agents_locations: list):
         self.environment = environment
         V = [v for v in environment['V']]
         E = environment['E']
         self.broken_nodes = set()
         self.graph = Graph(V, E)
+        self.agents_locations = agents_locations
 
     def valid_action(self, src, dst):
         return dst not in self.broken_nodes and self.graph.valid_move(src, dst)
@@ -40,7 +41,7 @@ class World:
         return self.graph.get_weight(v1, v2)
 
     def get_neighbors(self, v1):
-        return self.graph.get_neighbors(v1)
+        return (n for n in self.graph.get_neighbors(v1) if n not in self.broken_nodes)
 
     def handle_brittle(self, node):
         if self.environment['V'][node]["brittle"]:
@@ -61,15 +62,24 @@ class World:
     def get_brittle_vertices(self):
         return filter(lambda node: self.environment['V'][node]["brittle"], self.environment['V'])
 
-    def simulate_people_status(self, v, previous_ps: Dict):
+    def get_agents_locations(self, agent_index):
+        return self.agents_locations[agent_index], self.agents_locations[abs(agent_index - 1)]
+
+    def set_agent_location(self, agent, location):
+        self.agents_locations[agent] = location
+
+    def simulate_people_status(self, v1, v2, previous_ps: Dict):
         res = previous_ps.copy()
-        res[v] = 0
+        res[v1] = 0
+        res[v2] = 0
         return res
 
-    def simulate_broken_vertices(self, v, previous_bvs):
+    def simulate_broken_vertices(self, v1, v2, previous_bvs):
         res = previous_bvs.copy()
-        if self.environment['V'][v]["brittle"] and v not in res:
-            res.add(v)
+        if self.environment['V'][v1]["brittle"] and v1 not in res:
+            res.add(v1)
+        if self.environment['V'][v2]["brittle"] and v1 not in res:
+            res.add(v2)
         return res
 
     def get_MST_size(self, around_nodes=None, without_nodes=()):
@@ -80,25 +90,26 @@ class World:
 @total_ordering
 class StateNode:
 
-    def __init__(self, location, world: World, parent: Union["StateNode", None] = None):
-        self.location = location
+    def __init__(self, location1, location2, world: World, parent: Union["StateNode", None] = None):
+        self.location1, self.location2 = location1, location2
         self.parent = parent
         if parent:
-            self.people_status = world.simulate_people_status(location, parent.people_status)
-            self.broken_nodes_status = world.simulate_broken_vertices(location, parent.broken_nodes_status)
+            self.people_status = world.simulate_people_status(location1, location2, parent.people_status)
+            self.broken_nodes_status = world.simulate_broken_vertices(location1, location2, parent.broken_nodes_status)
         else:
             self.people_status = world.get_people_status()
             self.broken_nodes_status = world.get_broken_vertices_status()
+        print(self.location1, self.location2)
 
     def __eq__(self, other):
-        return self.location == other.location and self.people_status == other.people_status and self.broken_nodes_status == other.broken_nodes_status
+        return self.location1 == other.location1 and self.location2 == other.location2 and self.people_status == other.people_status and self.broken_nodes_status == other.broken_nodes_status
 
     def __lt__(self, other):
         assert type(other) is StateNode
-        return self.location < other.location
+        return self.location1 < other.location1
 
     def __str__(self):
-        return f"StateNode(state={self.location}, people_status={self.people_status}, broken_nodes_status={self.broken_nodes_status})"
+        return f"StateNode(state={self.location1}, people_status={self.people_status}, broken_nodes_status={self.broken_nodes_status})"
 
     def __repr__(self):
         return self.__str__()
