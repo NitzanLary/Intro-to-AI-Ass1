@@ -27,3 +27,7 @@ if __name__ == '__main__':
     print("The probability of each vertex being broken is: {}".format(bayes.get_broken_prob(evidence)))
     print("The probability of each vertex containing people is: {}".format(bayes.get_people_prob(evidence)))
     print("The probability of the weather is: {}".format(bayes.get_weather_prob(evidence)))
+    ans = input("If you want to know the probability of a path being broken, enter 1 ")
+    if ans == "1":
+        print(bayes.get_path_from_user(evidence))
+

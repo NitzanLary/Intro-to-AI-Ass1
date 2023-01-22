@@ -199,6 +199,26 @@ class BayesNetwork:
             prob *= self.enumerate_ask("B({})".format(edge[0]), evidence)[0]
         return prob
 
+    def get_path_from_user(self, evidence: Dict[str, int]) -> float:
+        """
+        Gets the probability of a path given by the user.
+        :param evidence: The evidence
+        :return: The probability of the path given the evidence
+        """
+        path = []
+        print("Numbers only, please.")
+        while True:
+            print("Enter the source vertex of the edge or 'q' to quit: ")
+            source = input()
+            if source == 'q':
+                break
+            print("Enter the destination vertex of the edge or 'q' to quit: ")
+            dest = input()
+            if dest == 'q':
+                break
+            path.append((source, dest))
+        return self.get_path_prob(path, evidence)
+
     def get_evidence_from_user(self) -> Dict[str, int]:
         """
         Gets the evidence or some of it from the user.
