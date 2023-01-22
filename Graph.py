@@ -2,7 +2,6 @@ import math
 from typing import Dict, List
 import networkx as nx
 import matplotlib.pyplot as plt
-from pyvis.network import Network
 
 
 class Graph:
@@ -12,6 +11,10 @@ class Graph:
         self.G.add_edges_from((str(e["v1"]), str(e["v2"]), {"weight": e["w"]}) for e in edges.values())
         self.pos = nx.spring_layout(self.G)  # for drawing
 
+    @property
+    def nodes(self):
+        return self.G.nodes
+
     def get_weight(self, v1, v2):
         assert v2 in self.G[v1], f"{v2} not in {v2}"
         return self.G[v1][v2]["weight"]
@@ -19,13 +22,14 @@ class Graph:
     def get_neighbors(self, v1):
         return self.G.neighbors(v1)
 
+    def neighbors(self, v1):
+        """Same as get_neighbors"""
+        return self.G.neighbors(v1)
+
     def valid_move(self, src, dst):
         return dst in self.G[src]
 
-    def display(self, nodes_labels):
-        # nt = Network(height="750px", width="100%", bgcolor="#222222", font_color="white")
-        # nt.from_nx(self.G)
-        # nt.show("Graph.html")
+    def display(self, nodes_labels=None):
         nx.draw_networkx_edge_labels(self.G, self.pos, edge_labels={e: v["weight"] for e, v in self.G.edges.items()},
                                      font_size=20)
         nx.draw_networkx(self.G, self.pos, with_labels=False)
@@ -50,15 +54,4 @@ class Graph:
                 dist, path = self.get_shortest_path(v_i, v_j, without_nodes)
                 full_graph_around_nodes.add_edge(v_i, v_j, weight=dist)
         mst = nx.minimum_spanning_tree(full_graph_around_nodes)
-        # pos = nx.spring_layout(full_graph_around_nodes)
-        # subax1 = plt.subplot(121)
-        # nx.draw(full_graph_around_nodes, pos=pos, with_labels=True)
-        # nx.draw_networkx_edge_labels(mst, pos=pos)
-        # subax2 = plt.subplot(122)
-        # pos = nx.spring_layout(mst)
-        # nx.draw(mst, pos=pos, with_labels=True)
-        # nx.draw_networkx_edge_labels(mst, pos=pos)
-        #
-        # plt.show()
-
         return mst.size(weight="weight")
